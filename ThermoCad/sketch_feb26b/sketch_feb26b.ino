@@ -1,95 +1,72 @@
-
-*/
+//include libraries and image folder
 #include <helper_3dmath.h>
-#include "images.h"  // Contains images[0..4]
-
-// ----- Standard and Adafruit Libraries -----
+#include "images.h"  
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-// ----- DS18B20 Digital Temperature Sensor Libraries -----
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-// ----- Create MPU6050 Object (for future use) -----
-
-//MPU6050 mpu;
-
-// ----- DS18B20 Sensor Setup -----
-// Temperature probe (J7) connected to digital pin 10.
+//set temperature port
 #define TEMP_DIGITAL_PIN 10
 OneWire oneWire(TEMP_DIGITAL_PIN);
 DallasTemperature sensors(&oneWire);
 
-// ----- PIN ASSIGNMENTS for Buttons -----
-// SW1: Toggle Celsius/Fahrenheit
-// SW2: Toggle OLED on/off
-// SW3: Toggle a light on/off
-// SW4: Placeholder for custom function
-// SW5: Toggle temperature lock
+// SW1: C or F
+// SW2: on/off
+// SW3: light/on off
+// SW4: calibration n/a
+// SW5: lock
 const int SW1_pin = 2;
 const int SW2_pin = 3;
 const int SW3_pin = 4;
 const int SW4_pin = 5;
 const int SW5_pin = 6;
 
-// ----- LED for Light Control -----
-// The LED is connected to pin 9.
+//led
 const int LED_pin = 9;
 bool lightOn = false;
 
-// ----- Global Variables for Temperature & Button Logic -----
-bool celsiusMode = true;  // if false, display Fahrenheit
-bool displayOn   = true;  // toggle OLED display on/off
-bool lockTemp    = false; // freeze the temperature reading when true
-float lastTempC  = 0.0;   // last measured temperature
-
-// ----- OLED Settings -----
+//global variables
+bool celsiusMode = true;  
+bool displayOn   = true; 
+bool lockTemp    = false; 
+float lastTempC  = 0.0;   
+//set monitor settings
 #define SCREEN_WIDTH   128
 #define SCREEN_HEIGHT  32
 #define OLED_RESET     -1
 #define SCREEN_ADDRESS 0x3C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// ----- State Machine for Image Display -----
+// state macine
 enum State_e { STATE1, STATE2, STATE3, STATE4, STATE5 };
 enum State_e gState = STATE1;
 
-// ----- Setup Function -----
+// setup
 void setup() {
   Serial.begin(9600);
   Wire.begin();
 
-  // Initialize MPU6050.
-  /*
-  mpu.initialize();
-  if (!mpu.testConnection()) {
-    Serial.println("MPU6050 connection failed!");
-    // Optionally halt if MPU6050 is required.
-    // while(1);
-  }
-  */
-  // Initialize DS18B20 sensor.
   sensors.begin();
   
-  // Configure button pins as inputs.
-  // (Assuming buttons are wired with a 10k resistor to GND so that a pressed button reads HIGH.)
+  // set buttons as inputs
   pinMode(SW1_pin, INPUT);
   pinMode(SW2_pin, INPUT);
   pinMode(SW3_pin, INPUT);
   pinMode(SW4_pin, INPUT);
   pinMode(SW5_pin, INPUT);
 
-  // Configure the LED pin as an output.
+  // set led as output
   pinMode(LED_pin, OUTPUT);
-  digitalWrite(LED_pin, LOW); // Start with the LED off.
+  digitalWrite(LED_pin, LOW);
 
-  // Initialize the OLED display.
+  // Init oled
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
-    while(1); // Halt if display is not found.
+    while(1); 
   }
   display.clearDisplay();
   display.display();
@@ -97,54 +74,53 @@ void setup() {
   Serial.println("Thermometer + Image State Machine Code Running");
 }
 
-// ----- Main Loop -----
+// main
 void loop() {
-  // Read button states.
+  // button states
   bool sw1State = digitalRead(SW1_pin);
   bool sw2State = digitalRead(SW2_pin);
   bool sw3State = digitalRead(SW3_pin);
   bool sw4State = digitalRead(SW4_pin);
   bool sw5State = digitalRead(SW5_pin);
 
-  // Toggle Celsius/Fahrenheit (SW1).
+  //  celcius mode logic
   if (sw1State == HIGH) {
     celsiusMode = !celsiusMode;
     delay(200);  // crude debounce delay
   }
   
-  // Toggle OLED display on/off (SW2).
+  // toggle display logic
   if (sw2State == HIGH) {
     displayOn = !displayOn;
     delay(200);
   }
   
-  // Toggle the LED light on/off (SW3).
+  // toggle led logic
   if (sw3State == HIGH) {
     lightOn = !lightOn;
     digitalWrite(LED_pin, lightOn ? HIGH : LOW);
     delay(200);
   }
   
-  // SW4 is reserved for custom functionality.
   
-  // Toggle temperature lock (SW5).
+  // lock logic
   if (sw5State == HIGH) {
     lockTemp = !lockTemp;
     delay(200);
   }
   
-  // Read digital temperature from DS18B20 if not locked.
+  // if the temp is not locked read the probe
   if (!lockTemp) {
     lastTempC = readTemperatureC();
   }
   
-  // Convert to Fahrenheit if needed.
+  // farienheight conversion
   float tempToDisplay = lastTempC;
   if (!celsiusMode) {
     tempToDisplay = (lastTempC * 9.0 / 5.0) + 32.0;
   }
   
-  // ----- State Machine: Cycle through images from images.h -----
+  // state machine that cycles through images for the display
   display.clearDisplay();
   switch(gState) {
     case STATE1:
@@ -169,9 +145,9 @@ void loop() {
       break;
   }
   display.display();
-  delay(1000); // Show the current image for 1 second.
+  delay(1000); 
   
-  // ----- Display Temperature Information -----
+ // display settings
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   
@@ -193,7 +169,7 @@ void loop() {
     display.display();
   }
   
-  // ----- Print Data to Serial Monitor -----
+  // print data to serial monitor bc monito doesnt work on board
   Serial.print("Temp: ");
   Serial.print(tempToDisplay, 1);
   Serial.println(celsiusMode ? " C" : " F");
@@ -208,10 +184,10 @@ void loop() {
   delay(500);
 }
 
-// ----- readTemperatureC() using DS18B20 digital sensor -----
+//  read temperuture using digital pin 10
 float readTemperatureC() {
-  sensors.requestTemperatures();  // Request temperature reading
-  float tempC = sensors.getTempCByIndex(0); // Read temperature from the first sensor
+  sensors.requestTemperatures(); 
+  float tempC = sensors.getTempCByIndex(0); /
   return tempC;
 }
 
