@@ -184,10 +184,15 @@ void loop() {
   delay(500);
 }
 
-//  read temperuture using digital pin 10
+//use potentiometer instead of probe
+#define TEMP_POT_PIN A0
+
 float readTemperatureC() {
-  sensors.requestTemperatures(); 
-  float tempC = sensors.getTempCByIndex(0); /
+  int sensorValue = analogRead(TEMP_POT_PIN); 
+  float voltage = sensorValue * (5.0 / 1023.0);
+
+  float tempC = voltage * 10.0; 
+  
   return tempC;
 }
 
